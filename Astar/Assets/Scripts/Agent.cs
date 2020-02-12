@@ -1,39 +1,51 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-
+using Solution;
 public class Agent : MonoBehaviour
 {
     public int moveButton = 0;
     public float moveSpeed = 3;
-    private Astar Astar = new Astar();
+    private AstarSolution Astar = new AstarSolution();
     private List<Vector2Int> path = new List<Vector2Int>();
-    private Cell[,] grid;
     private Plane ground = new Plane(Vector3.up, 0f);
     private MeshRenderer renderer;
     private GameObject targetVisual;
-
+    private MazeGeneration maze;
+    private LineRenderer line;
     private void Awake()
     {
+        maze = FindObjectOfType<MazeGeneration>();
         renderer = GetComponentInChildren<MeshRenderer>();
         targetVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
         targetVisual.transform.localScale = new Vector3(0.3f, 0.3f, 0.3f);
         targetVisual.GetComponent<MeshRenderer>().material.color = renderer.material.color;
+        line = GetComponent<LineRenderer>();
+        line.material.color = renderer.material.color;
+        line.material.color = renderer.material.color;
     }
 
     private void Start()
     {
-        InitAgent(MazeGeneration.grid);
-    }
-
-    public void InitAgent(Cell[,] grid)
-    {
-        this.grid = grid;
     }
 
     public void FindPathToTarget(Vector2Int startPos, Vector2Int endPos, Cell[,] grid)
     {
         path = Astar.FindPathToTarget(startPos, endPos, grid);
+        DrawPath();
     }
+
+    private void DrawPath()
+    {
+        if (path != null && path.Count > 0)
+        {
+            line.positionCount = path.Count;
+            for (int i = 0; i < path.Count; i++)
+            {
+                line.SetPosition(i, Vector2IntToVector3(path[i], 0.1f));
+            }
+        }
+    }
+
 
     //Move to clicked position
     public void Update()
@@ -46,7 +58,7 @@ public class Agent : MonoBehaviour
             Vector3 mousePos = MouseToWorld();
             Vector2Int targetPos = Vector3ToVector2Int(mousePos);
             targetVisual.transform.position = Vector2IntToVector3(targetPos);
-            FindPathToTarget(Vector3ToVector2Int(transform.position), targetPos, grid);
+            FindPathToTarget(Vector3ToVector2Int(transform.position), targetPos, maze.grid);
         }
 
         if (path != null && path.Count > 0)
@@ -59,6 +71,7 @@ public class Agent : MonoBehaviour
             else
             {
                 path.RemoveAt(0);
+                DrawPath();
             }
         }
 

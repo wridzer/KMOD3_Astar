@@ -4,8 +4,8 @@ using UnityEngine;
 public class MazeGeneration : MonoBehaviour
 {
     public int width = 10, height = 10;
-    public static Cell[,] grid;
-    public static float scaleFactor = 1;
+    public Cell[,] grid;
+    public float scaleFactor = 1;
     public CellPrefab cellPrefab;
     public float desiredWallpercentage = 0.4f;
     private List<GameObject> allCellObjects = new List<GameObject>();
@@ -16,6 +16,29 @@ public class MazeGeneration : MonoBehaviour
     {
         Random.InitState(seed);
         GenerateMaze();
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Space))
+        {
+            seed = Random.Range(0, int.MaxValue);
+            Random.InitState(seed);
+            width = Random.Range(10, 100);
+            height = Random.Range(10, 100);
+            desiredWallpercentage = Random.Range(0.2f, 1.0f);
+            DestroyMazeObjects();
+            GenerateMaze();
+        }
+    }
+
+    private void DestroyMazeObjects()
+    {
+        allCellObjects.Clear();
+        foreach (Transform t in transform)
+        {
+            Destroy(t.gameObject);
+        }
     }
 
     public void GenerateMaze()
@@ -82,7 +105,7 @@ public class MazeGeneration : MonoBehaviour
         {
             for (int y = 0; y < height; y++)
             {
-                CellPrefab cellObject = Instantiate(cellPrefab, new Vector3(x * scaleFactor, 0, y * scaleFactor), Quaternion.identity);
+                CellPrefab cellObject = Instantiate(cellPrefab, new Vector3(x * scaleFactor, 0, y * scaleFactor), Quaternion.identity, transform);
                 cellObject.transform.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
                 cellObject.SpawnWalls(grid[x, y]);
                 allCellObjects.Add(cellObject.gameObject);
@@ -179,7 +202,7 @@ public class MazeGeneration : MonoBehaviour
         return false;
     }
 
-    public static Cell GetCellForWorldPosition(Vector3 worldPos)
+    public Cell GetCellForWorldPosition(Vector3 worldPos)
     {
         return grid[(int)(Mathf.RoundToInt(worldPos.x) / scaleFactor), (int)(Mathf.RoundToInt(worldPos.z) / scaleFactor)];
     }
