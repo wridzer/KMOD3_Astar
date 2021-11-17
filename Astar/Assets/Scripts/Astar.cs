@@ -72,7 +72,8 @@ public class Astar
 
         for (int i = 0; i < neighbours.Count; i++)
         {
-            if (true/*no wall here, also no node*/)
+            //raycast for wall check
+            if (true/*put all nodes in list to make sure it doesn't exist already*/)
             {
                 int HScore = (int)Vector2.Distance(successorPos, endPos);
                 int GScore = (int)Vector2.Distance(startPos, successorPos);
