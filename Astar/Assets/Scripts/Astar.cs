@@ -15,6 +15,8 @@ public class Astar
     /// <param name="grid"></param>
     /// <returns></returns>
     /// 
+    private List<Node> allNodes = new List<Node>();
+    private List<Node> successorNodes = new List<Node>();
     private List<Node> open = new List<Node>();
     private List<Node> closed = new List<Node>();
 
@@ -23,29 +25,72 @@ public class Astar
         int HScore = (int)Vector2.Distance(startPos, endPos);
         Node startNode = new Node(startPos, null, 0, HScore);
         open.Add(startNode);
+        Node currentNode = null;
         while(open != null)
         {
-            Node currentNode = null;
-            foreach(Node n in open)
+            foreach(Node n in allNodes)
             {
                 if (currentNode == null || n.FScore < currentNode.FScore)
                 {
+                    Node oldNode = currentNode;
                     currentNode = n;
+                    open.Add(currentNode);
+                    open.Remove(oldNode);
+                    closed.Add(oldNode);
                 } else
+                {
+                    open.Remove(n);
+                    closed.Add(n);
+                }
+            }
+            if (currentNode.position == endPos)
+            {
+                //open.Clear();
+                return Backtrack(currentNode);
+            }
+
+            successorNodes.Clear();
+            GenerateNodeSuccessors(currentNode, startPos, endPos);
+            foreach (Node n in successorNodes)
+            {
+                if (closed.Contains(n))
                 {
                     continue;
                 }
-                if(currentNode.position == endPos)
+                // Create the f, g, and h values
+                n.GScore = currentNode.GScore + (int)Vector2.Distance(n.position, currentNode.position);
+                n.HScore = (int)Vector2.Distance(n.position, endPos);
+                // Child is already in openList
+                if (open.Contains(n))
                 {
-                    //found end
+                    if (n.GScore > currentNode.GScore)
+                    {
+                        continue;
+                    }
                 }
+                // Add the child to the openList
+                open.Add(n);
             }
-            GenerateNodeSuccessors(currentNode, startPos, endPos);
-            
         }
-        //codes in list??
-
         return null;
+    }
+
+    List<Vector2Int> Backtrack(Node currentNode)
+    {
+        List<Vector2Int> directions = new List<Vector2Int>();
+
+        Node thisNode = currentNode;
+
+        while(thisNode.parent != null)
+        {
+            directions.Add(thisNode.position);
+            thisNode = thisNode.parent;
+        }
+        directions.Add(thisNode.position);
+
+        directions.Reverse();
+
+        return directions;
     }
 
     void GenerateNodeSuccessors(Node currentNode, Vector2Int startPos, Vector2Int endPos)
@@ -70,18 +115,37 @@ public class Astar
         neighbours.Add(successorPos6);
         neighbours.Add(successorPos7);
 
+        Debug.Log(neighbours);
+
         for (int i = 0; i < neighbours.Count; i++)
         {
-            //raycast for wall check
-            if (true/*put all nodes in list to make sure it doesn't exist already*/)
+            bool notCreate = false;
+            /*RaycastHit hit;
+            if (Physics.Raycast(new Vector3(currentNode.position.x, currentNode.position.y, 1), new Vector3(neighbours[i].x, neighbours[i].y, 1), out hit))
+            {
+                notCreate = true;
+            }*/
+            foreach(Node n in allNodes)
+            {
+                if (n.position == neighbours[i])
+                {
+                    notCreate = true;
+                    successorNodes.Add(n);
+                }
+            }
+            if (notCreate)
+            {
+                neighbours.Remove(neighbours[i]);
+            } else
             {
                 int HScore = (int)Vector2.Distance(successorPos, endPos);
                 int GScore = (int)Vector2.Distance(startPos, successorPos);
-                Node successorNode = new Node(startPos, null, GScore, HScore);
+                Node successorNode = new Node(neighbours[i], currentNode, GScore, HScore);
+                allNodes.Add(successorNode);
+                successorNodes.Add(successorNode);
+                neighbours.Remove(neighbours[i]);
             }
-        }
-        //add them to a list??
-
+        }        
     }
 
     /// <summary>
