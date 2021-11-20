@@ -22,60 +22,84 @@ public class Astar
 
     public List<Vector2Int> FindPathToTarget(Vector2Int startPos, Vector2Int endPos, Cell[,] grid)
     {
-        int HScore = (int)Vector2.Distance(startPos, endPos);
+        //Check if begin and end are not the same
+        if(startPos == endPos) { return new List<Vector2Int>(); }
+        //Counter to end infinite loop
+        int numberOfOperations = 0;
+        //Create start node
+        float HScore = Vector2.Distance(startPos, endPos);
         Node startNode = new Node(startPos, null, 0, HScore);
         open.Add(startNode);
+        //Main loop to find end
         Node currentNode = null;
-        while(open != null)
+        while (open != null)
         {
-            foreach(Node n in allNodes)
+            //Check if not in infinite loop
+            if (numberOfOperations > 10000) { Debug.Log("Could not find path"); return null; }
+            //Get new current node
+            Node oldCurrentNode = currentNode;
+            currentNode = GetLowestFScore();
+            if (oldCurrentNode != currentNode)
             {
-                if (currentNode == null || n.FScore < currentNode.FScore)
-                {
-                    Node oldNode = currentNode;
-                    currentNode = n;
-                    open.Add(currentNode);
-                    open.Remove(oldNode);
-                    closed.Add(oldNode);
-                } else
-                {
-                    open.Remove(n);
-                    closed.Add(n);
-                }
+                open.Remove(currentNode);
+                closed.Add(currentNode);
             }
+            //Check if end
             if (currentNode.position == endPos)
             {
-                //open.Clear();
+                closed.Clear();
+                allNodes.Clear();
+                successorNodes.Clear();
+                open.Clear();
                 return Backtrack(currentNode);
             }
-
+            //Genarate new nodes
             successorNodes.Clear();
-            GenerateNodeSuccessors(currentNode, startPos, endPos);
+            GenerateNodeSuccessors(currentNode);
             foreach (Node n in successorNodes)
             {
                 if (closed.Contains(n))
                 {
                     continue;
                 }
-                // Create the f, g, and h values
-                n.GScore = currentNode.GScore + (int)Vector2.Distance(n.position, currentNode.position);
-                n.HScore = (int)Vector2.Distance(n.position, endPos);
+                // Create the values
+                n.GScore = currentNode.GScore + Vector2.Distance(n.position, currentNode.position);
+                n.HScore = Vector2.Distance(n.position, endPos);
                 // Child is already in openList
                 if (open.Contains(n))
                 {
-                    if (n.GScore > currentNode.GScore)
+                    if (n.FScore > currentNode.FScore)
                     {
                         continue;
                     }
                 }
                 // Add the child to the openList
+                n.parent = currentNode;
                 open.Add(n);
             }
+            numberOfOperations++;
         }
         return null;
     }
 
-    List<Vector2Int> Backtrack(Node currentNode)
+    private Node GetLowestFScore()
+    {
+        Node bestNode = null;
+
+        foreach (Node n in open)
+        {
+            if (bestNode == null || n.FScore < bestNode.FScore)
+            {
+                bestNode = n;
+                Debug.Log("FScore: " + bestNode.FScore + " Position: " + bestNode.position);
+            }
+        }
+        Debug.Log("sex");
+
+        return bestNode;
+    }
+
+    private List<Vector2Int> Backtrack(Node currentNode)
     {
         List<Vector2Int> directions = new List<Vector2Int>();
 
@@ -93,7 +117,7 @@ public class Astar
         return directions;
     }
 
-    void GenerateNodeSuccessors(Node currentNode, Vector2Int startPos, Vector2Int endPos)
+    private void GenerateNodeSuccessors(Node currentNode)
     {
         List<Vector2Int> neighbours = new List<Vector2Int>();
 
@@ -115,16 +139,15 @@ public class Astar
         neighbours.Add(successorPos6);
         neighbours.Add(successorPos7);
 
-        Debug.Log(neighbours);
-
         for (int i = 0; i < neighbours.Count; i++)
         {
             bool notCreate = false;
-            /*RaycastHit hit;
-            if (Physics.Raycast(new Vector3(currentNode.position.x, currentNode.position.y, 1), new Vector3(neighbours[i].x, neighbours[i].y, 1), out hit))
+            RaycastHit hit;
+            if (Physics.Raycast(new Vector3(currentNode.position.x, 0.5f, currentNode.position.y), new Vector3(neighbours[i].x, 0.5f, neighbours[i].y), out hit))
             {
+                Gizmos.DrawLine(new Vector3(currentNode.position.x, 0.5f, currentNode.position.y), new Vector3(neighbours[i].x, 0.5f, neighbours[i].y));
                 notCreate = true;
-            }*/
+            }
             foreach(Node n in allNodes)
             {
                 if (n.position == neighbours[i])
@@ -138,9 +161,7 @@ public class Astar
                 neighbours.Remove(neighbours[i]);
             } else
             {
-                int HScore = (int)Vector2.Distance(successorPos, endPos);
-                int GScore = (int)Vector2.Distance(startPos, successorPos);
-                Node successorNode = new Node(neighbours[i], currentNode, GScore, HScore);
+                Node successorNode = new Node(neighbours[i], null, 0, 0);
                 allNodes.Add(successorNode);
                 successorNodes.Add(successorNode);
                 neighbours.Remove(neighbours[i]);
@@ -163,7 +184,7 @@ public class Astar
         public float HScore; //Distance estimated based on Heuristic
 
         public Node() { }
-        public Node(Vector2Int position, Node parent, int GScore, int HScore)
+        public Node(Vector2Int position, Node parent, float GScore, float HScore)
         {
             this.position = position;
             this.parent = parent;
