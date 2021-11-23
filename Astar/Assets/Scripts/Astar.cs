@@ -15,10 +15,15 @@ public class Astar
     /// <param name="grid"></param>
     /// <returns></returns>
     /// 
-    private List<Node> allNodes = new List<Node>();
+    private Dictionary<Vector2Int, Node> allNodes = new Dictionary<Vector2Int, Node>();
     private List<Node> successorNodes = new List<Node>();
     private List<Node> open = new List<Node>();
-    private List<Node> closed = new List<Node>();
+
+    //Directions
+    Vector2Int left = new Vector2Int(-1, 0);
+    Vector2Int right = new Vector2Int(1, 0);
+    Vector2Int up = new Vector2Int(0, 1);
+    Vector2Int down = new Vector2Int(0, -1);
 
     public List<Vector2Int> FindPathToTarget(Vector2Int startPos, Vector2Int endPos, Cell[,] grid)
     {
@@ -26,60 +31,67 @@ public class Astar
         if(startPos == endPos) { return new List<Vector2Int>(); }
         //Counter to end infinite loop
         int numberOfOperations = 0;
+        //Generate grid if neccessary
+        CreateGrid(grid);
+
+
         //Create start node
         float HScore = Vector2.Distance(startPos, endPos);
         Node startNode = new Node(startPos, null, 0, HScore);
         open.Add(startNode);
         //Main loop to find end
-        Node currentNode = null;
-        while (open != null)
+        Node currentNode = startNode;
+        while (open.Count > 0)
         {
             //Check if not in infinite loop
             if (numberOfOperations > 10000) { Debug.Log("Could not find path"); return null; }
+
             //Get new current node
-            Node oldCurrentNode = currentNode;
             currentNode = GetLowestFScore();
-            if (oldCurrentNode != currentNode)
-            {
-                open.Remove(currentNode);
-                closed.Add(currentNode);
-            }
+
             //Check if end
             if (currentNode.position == endPos)
             {
-                closed.Clear();
                 allNodes.Clear();
                 successorNodes.Clear();
                 open.Clear();
                 return Backtrack(currentNode);
             }
+
             //Genarate new nodes
             successorNodes.Clear();
-            GenerateNodeSuccessors(currentNode);
+            GenerateNodeSuccessors(currentNode, grid);
+
+            open.Remove(currentNode);
             foreach (Node n in successorNodes)
             {
-                if (closed.Contains(n))
-                {
-                    continue;
-                }
                 // Create the values
-                n.GScore = currentNode.GScore + Vector2.Distance(n.position, currentNode.position);
-                n.HScore = Vector2.Distance(n.position, endPos);
-                // Child is already in openList
-                if (open.Contains(n))
+                float newGScore = currentNode.GScore + Vector2.Distance(n.position, currentNode.position);
+                float newHScore = Vector2.Distance(n.position, endPos);
+                if (newGScore < n.GScore)
                 {
-                    if (n.FScore > currentNode.FScore)
+                    // This path to neighbor is better than any previous one. Record it!
+                    n.parent = currentNode;
+                    n.GScore = newGScore;
+                    n.HScore = newHScore;
+                    if (!open.Contains(n))
                     {
-                        continue;
+                        open.Add(n);
                     }
                 }
-                // Add the child to the openList
-                n.parent = currentNode;
-                open.Add(n);
             }
             numberOfOperations++;
         }
+        Debug.LogError("Openlist empty before path was found");
         return null;
+    }
+
+    private void CreateGrid(Cell[,] grid)
+    {
+        foreach(Cell cell in grid)
+        {
+            allNodes.Add(cell.gridPosition, new Node(cell.gridPosition, null, float.PositiveInfinity, 0));
+        }
     }
 
     private Node GetLowestFScore()
@@ -91,10 +103,9 @@ public class Astar
             if (bestNode == null || n.FScore < bestNode.FScore)
             {
                 bestNode = n;
-                Debug.Log("FScore: " + bestNode.FScore + " Position: " + bestNode.position);
             }
         }
-        Debug.Log("sex");
+        Debug.Log("FScore: " + bestNode.FScore + " Position: " + bestNode.position);
 
         return bestNode;
     }
@@ -117,56 +128,68 @@ public class Astar
         return directions;
     }
 
-    private void GenerateNodeSuccessors(Node currentNode)
+    private void GenerateNodeSuccessors(Node currentNode, Cell[,] grid)
     {
         List<Vector2Int> neighbours = new List<Vector2Int>();
 
-        Vector2Int successorPos = currentNode.position + new Vector2Int(-1, 1);
-        Vector2Int successorPos1 = currentNode.position + new Vector2Int(0, 1);
-        Vector2Int successorPos2 = currentNode.position + new Vector2Int(1, 1);
-        Vector2Int successorPos3 = currentNode.position + new Vector2Int(-1, 0);
-        Vector2Int successorPos4 = currentNode.position + new Vector2Int(1, 0);
-        Vector2Int successorPos5 = currentNode.position + new Vector2Int(-1, -1);
-        Vector2Int successorPos6 = currentNode.position + new Vector2Int(0, -1);
-        Vector2Int successorPos7 = currentNode.position + new Vector2Int(1, -1);
+        neighbours.Add(currentNode.position + up);
+        neighbours.Add(currentNode.position + left);
+        neighbours.Add(currentNode.position + down);
+        neighbours.Add(currentNode.position + right);
 
-        neighbours.Add(successorPos);
-        neighbours.Add(successorPos1);
-        neighbours.Add(successorPos2);
-        neighbours.Add(successorPos3);
-        neighbours.Add(successorPos4);
-        neighbours.Add(successorPos5);
-        neighbours.Add(successorPos6);
-        neighbours.Add(successorPos7);
-
-        for (int i = 0; i < neighbours.Count; i++)
+        foreach (Vector2Int pos in neighbours)
         {
-            bool notCreate = false;
-            RaycastHit hit;
-            if (Physics.Raycast(new Vector3(currentNode.position.x, 0.5f, currentNode.position.y), new Vector3(neighbours[i].x, 0.5f, neighbours[i].y), out hit))
+            if(allNodes.ContainsKey(pos))
             {
-                Gizmos.DrawLine(new Vector3(currentNode.position.x, 0.5f, currentNode.position.y), new Vector3(neighbours[i].x, 0.5f, neighbours[i].y));
-                notCreate = true;
-            }
-            foreach(Node n in allNodes)
-            {
-                if (n.position == neighbours[i])
+                if(CheckWall(currentNode, pos, grid))
                 {
-                    notCreate = true;
-                    successorNodes.Add(n);
+                    Node childNode = allNodes[pos];
+                    successorNodes.Add(childNode);
                 }
+
             }
-            if (notCreate)
+        }
+        
+    }
+
+    private bool CheckWall(Node _current, Vector2Int _neighbour, Cell[,] grid)
+    {
+        //get direction
+        Vector2Int dir = _neighbour - _current.position;
+        //if dir left check this wall left, other wall right
+        if(dir == left)
+        {
+            if (grid[_current.position.x, _current.position.y].HasWall(Wall.LEFT) || grid[_neighbour.x, _neighbour.y].HasWall(Wall.RIGHT))
             {
-                neighbours.Remove(neighbours[i]);
-            } else
-            {
-                Node successorNode = new Node(neighbours[i], null, 0, 0);
-                allNodes.Add(successorNode);
-                successorNodes.Add(successorNode);
-                neighbours.Remove(neighbours[i]);
+                return false;
             }
-        }        
+        }
+        //if dir up check this wall up, other wall down
+        if (dir == up)
+        {
+            if (grid[_current.position.x, _current.position.y].HasWall(Wall.UP) || grid[_neighbour.x, _neighbour.y].HasWall(Wall.DOWN))
+            {
+                return false;
+            }
+        }
+        //if dir right check this wall right, other wall left
+        if (dir == right)
+        {
+            if (grid[_current.position.x, _current.position.y].HasWall(Wall.RIGHT) || grid[_neighbour.x, _neighbour.y].HasWall(Wall.LEFT))
+            {
+                return false;
+            }
+        }
+        //if dir down check this wall down, other wall up
+        if (dir == down)
+        {
+            if (grid[_current.position.x, _current.position.y].HasWall(Wall.DOWN) || grid[_neighbour.x, _neighbour.y].HasWall(Wall.UP))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
